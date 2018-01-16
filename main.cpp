@@ -187,8 +187,8 @@ void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx
             return trace( lr, dep, m, f * flux, f * adj, idx );
         
         V3 td = unit( r.dir * nnt - n * ( (into ? 1 : -1) * ( ddn * nnt + sqrt( cos2t )) ));
-        ld a = nt - nc, b = nt + nc, R0 = sqr(a) / sqr(b), c = 1 - (into ? -ddn : dot(td, n)),
-           Re = R0 + (1 - R0) * c * c * c * c * c, P = Re;
+        ld a = nt - nc, b = nt + nc, R0 = sqr(a) / (sqr(b)), c = 1 - (into ? -ddn : dot(td, n)),
+           Re = R0 + (1 - R0) * c * c * c * c * c, p = Re;
         Ray rr(x, td);
         V3 fflux = f * flux, fadj = f * adj;
 
