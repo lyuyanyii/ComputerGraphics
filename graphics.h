@@ -2,6 +2,11 @@
 #define __GRAPHICS_H__
 
 #include <cmath>
+#include <vector>
+#include <cstdlib>
+#include <algorithm>
+#include <iostream>
+using namespace std;
 
 typedef double ld;
 
@@ -10,6 +15,8 @@ static const ld D_INF = 1e20;
 static const ld D_EPS = 1e-4;
 
 #define sqr(_) ((_)*(_))
+//#define max(a, b) (((a) > (b)) ? (a) : (b))
+//#define min(a, b) (((a) < (b)) ? (a) : (b))
 
 //
 //3-d Vector
@@ -61,12 +68,17 @@ inline ld dot(const V3 &a, const V3 &b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
-inline ld det(const V3 &a, const V3 &b)
+inline V3 det(const V3 &a, const V3 &b)
 {
     return V3(
             a.y * b.z - a.z * b.y,
             a.z * b.x - a.x * b.z,
             a.x * b.y - a.y * b.x );
+}
+inline V3 reflect(const V3 &a, const V3 &b)
+{
+    ld d = dot(a, b);
+    return a - b * d * 2;
 }
 
 //

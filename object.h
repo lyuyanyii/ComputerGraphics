@@ -7,7 +7,7 @@ typedef double ld;
 
 enum MaterialType
 {
-    Matter = 0,
+    Matte = 0,
     Mirror,
     Glass,
 };
@@ -21,7 +21,7 @@ struct SphereObject : public Sphere
     V3 col;
     MaterialType type;
 
-    SphereObject(ld r, V3, pos, V3 col, MaterialType type):
+    SphereObject(ld r, V3 pos, V3 col, MaterialType type):
         Sphere(pos, r), col(col), type(type) {}
 };
 
