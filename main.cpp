@@ -38,6 +38,7 @@ SphereObject sph[] =
     SphereObject(16.5, V3( 73,        16.5,         88 ), V3( 0.99, 0.99, 0.99 ),  MaterialType::Glass ),   //Glass
     SphereObject(8.5, V3( 50, 8.5, 60 ), V3( 0.75, 0.75, 0.75 ), MaterialType::Matte ), //Middle
 };
+MeshObject Cup = MeshObject("3d-model.obj", 0.99, MaterialType::Mirror);
 
 inline unsigned int get_hash( const int ix, const int iy, const int iz )
 {
@@ -86,7 +87,7 @@ void build_hash_grid( const int w, const int h )
     }
 }
 
-inline bool intersect(const Ray &r, double &t, int &id)
+inline bool intersect_sphere(const Ray &r, double &t, int &id)
 {
     int n = sizeof(sph) / sizeof(sph[0]);
     ld d = D_INF;
@@ -99,6 +100,31 @@ inline bool intersect(const Ray &r, double &t, int &id)
     }
     return (t < D_INF);
 }
+inline bool intersect(const Ray &r, V3 &x, V3 &n, V3 &f, MaterialType &type)
+{
+    ld t1 = D_INF;
+    int id1;
+    bool s1 = intersect_sphere(r, t1, id1);
+    if (s1)
+    {
+        x = r.pos + r.dir * t1;
+        const auto &obj = sph[id1];
+        n = unit(x - obj.pos);
+        f = obj.col;
+        type = obj.type;
+    }
+    ld t2 = D_INF;
+    V3 n2 = 0;
+    bool s2 = Cup.intersect(r, t2, n2);
+    if (s2 && t2 < t1)
+    {
+        x = r.pos + r.dir * t2;
+        n = n2;
+        f = Cup.col;
+        type = Cup.type;
+    }
+    return s1 || s2;
+}
 void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx)
 {
     /*
@@ -106,6 +132,7 @@ void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx
             dep, r.pos.x, r.pos.y, r.pos.z, r.dir.x, r.dir.y, r.dir.z);
     */
     
+    /*
     ld t;
     int id;
 
@@ -114,11 +141,18 @@ void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx
         return ;
 
     const auto &obj = sph[id];
-    V3 x = r.pos + r.dir * t, n = unit(x - obj.pos), f = obj.col, 
-        nl = (dot(n, r.dir) < 0) ? n : n*-1;
+    V3 x = r.pos + r.dir * t, n = unit(x - obj.pos), f = obj.col;
+    */
+    
+    V3 f = 0, n = 0, x = 0;
+    MaterialType type;
+    ++dep;
+    if (!intersect(r, x, n, f, type) || dep >= 20)
+        return ;
+    V3 nl = (dot(n, r.dir) < 0) ? n : n*-1;
     ld p = max(max(f.x, f.y), f.z);
 
-    if ( obj.type == MaterialType::Matte )
+    if ( type == MaterialType::Matte )
     {
         if (m)
         {
@@ -171,11 +205,11 @@ void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx
                 trace( Ray(x, d), dep, m, f * flux * (1.0 / p), f * adj, idx );
         }
     }
-    else if ( obj.type == MaterialType::Mirror )
+    else if ( type == MaterialType::Mirror )
     {
         trace( Ray(x, reflect(r.dir, n)), dep, m, flux * f, adj * f, idx );
     }
-    else if ( obj.type == MaterialType::Glass )
+    else if ( type == MaterialType::Glass )
     {
         Ray lr( x, reflect( r.dir, n ) );
         bool into = (dot(n, nl) > 0);
@@ -282,8 +316,11 @@ void density_estimate( V3* col, int s )
 
 int main()
 {
-    int w = 800, h = 600, s = 10000;
+    int w = 1280, h = 1080, s = 1000;
     V3 *col = new V3[w * h];
+
+    Cup.Trans(V3( 40, 0, 110 ), 0.5);
+    Cup.Build();
 
     hpbbox.reset();
 
