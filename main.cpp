@@ -282,7 +282,7 @@ void density_estimate( V3* col, int s )
 
 int main()
 {
-    int w = 1280, h = 1080, s = 10000;
+    int w = 800, h = 600, s = 10000;
     V3 *col = new V3[w * h];
 
     hpbbox.reset();

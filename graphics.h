@@ -57,6 +57,12 @@ struct V3
         x *= a.x, y *= a.y, z *= a.z;
         return (*this);
     }
+    inline void print() const {
+        cout << "(" << x << "," << y << "," << z << ")";
+    }
+    inline ld norm() const {
+        return sqrt(sqr(x) + sqr(y) + sqr(z));
+    }
 };
 
 inline V3 unit(const V3 &v) 
@@ -143,6 +149,21 @@ struct BBox
     {
         mini = V3( D_INF,  D_INF,  D_INF);
         maxi = V3(-D_INF, -D_INF, -D_INF);
+    }
+
+    inline bool intersect(const Ray &r, ld &t1, ld &t2) const {
+        V3 minit = (mini - r.pos) / r.dir, maxit = (maxi - r.pos) / r.dir;
+       
+        if (minit.x > maxit.x)
+            swap(minit.x, maxit.x);
+        if (minit.y > maxit.y)
+            swap(minit.y, maxit.y);
+        if (minit.z > maxit.z)
+            swap(minit.z, maxit.z);
+
+        t1 = max(minit.x, max(minit.y, minit.z));
+        t2 = min(maxit.x, min(maxit.y, maxit.z));
+        return ( (t1 < t2) && (t2 > 0) );
     }
 };
 

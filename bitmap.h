@@ -120,9 +120,9 @@ void write_bmp
         {
             int index = ( i * width * 3 ) + ( j * 3 );
 
-            double r = pow( pPixel[index + 0], 1.0 / gamma );
-            double g = pow( pPixel[index + 1], 1.0 / gamma );
-            double b = pow( pPixel[index + 2], 1.0 / gamma );
+            double r = pow( 1 - exp(-pPixel[index + 0]), 1.0 / gamma );
+            double g = pow( 1 - exp(-pPixel[index + 1]), 1.0 / gamma );
+            double b = pow( 1 - exp(-pPixel[index + 2]), 1.0 / gamma );
 
             if ( r > 1.0 ) { r = 1.0; }
             if ( g > 1.0 ) { g = 1.0; }
