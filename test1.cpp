@@ -23,9 +23,9 @@ int main()
     ld t = 0;
     cout << mesh.intersect(r, t) << endl;
     */
-    MeshObject a = MeshObject("3d-model.obj", 0.99, MaterialType::Glass);
+    MeshObject a = MeshObject("1.obj", 0.99, MaterialType::Glass);
     a.Build();
-    Ray r(V3(0, 11.1644, 0), V3(1e-4, 1, 1e-4));
+    Ray r(V3(0, 0.5, 0), V3(1e-4, 1, 1e-4));
     ld t = 0;
     V3 n = 0;
     cout << a.intersect(r, t, n) << endl;

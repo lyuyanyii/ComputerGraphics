@@ -12,7 +12,7 @@ typedef double ld;
 
 static const ld D_PI = 3.1415926535897932384626433832795;
 static const ld D_INF = 1e20;
-static const ld D_EPS = 1e-4;
+static const ld D_EPS = 1e-12;
 
 #define sqr(_) ((_)*(_))
 //#define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -163,7 +163,7 @@ struct BBox
 
         t1 = max(minit.x, max(minit.y, minit.z));
         t2 = min(maxit.x, min(maxit.y, maxit.z));
-        return ( (t1 < t2) && (t2 > 0) );
+        return ( (t1 < t2 + D_EPS) && (t2 > -D_EPS) );
     }
 };
 

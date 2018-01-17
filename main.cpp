@@ -38,7 +38,7 @@ SphereObject sph[] =
     SphereObject(16.5, V3( 73,        16.5,         88 ), V3( 0.99, 0.99, 0.99 ),  MaterialType::Glass ),   //Glass
     SphereObject(8.5, V3( 50, 8.5, 60 ), V3( 0.75, 0.75, 0.75 ), MaterialType::Matte ), //Middle
 };
-MeshObject Cup = MeshObject("3d-model.obj", 0.99, MaterialType::Mirror);
+MeshObject Cup = MeshObject("3d-model.obj", V3( 0.99, 0.99, 0.99 ), MaterialType::Mirror);
 
 inline unsigned int get_hash( const int ix, const int iy, const int iz )
 {
@@ -119,9 +119,11 @@ inline bool intersect(const Ray &r, V3 &x, V3 &n, V3 &f, MaterialType &type)
     if (s2 && t2 < t1)
     {
         x = r.pos + r.dir * t2;
+        //x.print();
         n = n2;
         f = Cup.col;
         type = Cup.type;
+        //puts("A");
     }
     return s1 || s2;
 }
@@ -217,7 +219,7 @@ void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx
            ddn = dot( r.dir, nl ), cos2t = 1 - sqr(nnt) * (1 - sqr(ddn));
 
         // total internal reflection
-        if (cos2t < 0)
+        if (cos2t < -D_EPS)
             return trace( lr, dep, m, f * flux, f * adj, idx );
         
         V3 td = unit( r.dir * nnt - n * ( (into ? 1 : -1) * ( ddn * nnt + sqrt( cos2t )) ));
@@ -319,7 +321,9 @@ int main()
     int w = 1280, h = 1080, s = 1000;
     V3 *col = new V3[w * h];
 
-    Cup.Trans(V3( 40, 0, 110 ), 0.5);
+    //Cup.Trans(V3( 40, 0, 110 ), 0.5);
+    Cup.Trans(0, 1);
+    Cup.Trans( V3(10, 0, 90) - (Cup.bbox.mini)* 0.5, 0.5 );
     Cup.Build();
 
     hpbbox.reset();
