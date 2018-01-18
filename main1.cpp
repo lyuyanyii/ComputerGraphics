@@ -34,11 +34,18 @@ SphereObject sph[] =
     SphereObject(1e5,  V3( 50,        40.8, -1e5 + 170 ), V3( 0.0,  0.0,  0.0  ),  MaterialType::Matte ),   //Front
     SphereObject(1e5,  V3( 50,         1e5,       81.6 ), V3( 0.75, 0.75, 0.75 ),  MaterialType::Matte ),   //Bottomm
     SphereObject(1e5,  V3( 50, -1e5 + 81.6,       81.6 ), V3( 0.75, 0.75, 0.75 ),  MaterialType::Matte ),   //Top
-    SphereObject(16.5, V3( 27,        16.5,         47 ), V3( 0.25, 0.85, 0.25 ),  MaterialType::Glass ),   //Mirror
-    SphereObject(16.5, V3( 73,        16.5,         88 ), V3( 0.99, 0.99, 0.99 ),  MaterialType::Glass ),   //Glass
-    SphereObject(8.5, V3( 50, 8.5, 60 ), V3( 0.8, 0.8, 0.8 ), MaterialType::Mirror ), //Middle
+    //SphereObject(16.5, V3( 27,        16.5,         47 ), V3( 0.25, 0.85, 0.25 ),  MaterialType::Glass),   //Mirror
+    //SphereObject(16.5, V3( 73,        16.5,         88 ), V3( 0.99, 0.99, 0.99 ),  MaterialType::Glass ),   //Glass
+    //SphereObject(8.5, V3( 50, 8.5, 60 ), V3( 0.75, 0.75, 0.75 ), MaterialType::Mirror ), //Middle
+    SphereObject(8.5, V3( 50-cos(D_PI/7)*40, 10, 100-sin(D_PI/7)*40 ), V3( 0.99, 0.01, 0.01 ), MaterialType::Glass ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*2)*40, 20, 100-sin(D_PI/7*2)*40 ), V3( 0.99, 0.64, 0.01 ), MaterialType::Mirror ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*3)*40, 30, 100-sin(D_PI/7*3)*40 ), V3( 0.99, 0.99, 0.01 ), MaterialType::Glass ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*4)*40, 40, 100-sin(D_PI/7*4)*40 ), V3( 0.01, 0.99, 0.01 ), MaterialType::Mirror ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*5)*40, 50, 100-sin(D_PI/7*5)*40 ), V3( 0.01, 0.50, 0.99 ), MaterialType::Glass ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*6)*40, 60, 100-sin(D_PI/7*6)*40 ), V3( 0.01, 0.01, 0.99 ), MaterialType::Mirror ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*7)*40, 70, 100-sin(D_PI/7*7)*40 ), V3( 0.54, 0.01, 0.99 ), MaterialType::Glass ),
 };
-MeshObject Cup = MeshObject("3d-model.obj", V3( 0.99, 0.99, 0.99 ), MaterialType::Glass);
+MeshObject Cup = MeshObject("3d-model.obj", V3( 0.8, 0.8, 0.8 ), MaterialType::Glass);
 
 inline unsigned int get_hash( const int ix, const int iy, const int iz )
 {
@@ -111,6 +118,14 @@ inline bool intersect(const Ray &r, V3 &x, V3 &n, V3 &f, MaterialType &type)
         const auto &obj = sph[id1];
         n = unit(x - obj.pos);
         f = obj.col;
+        if (id1 < 6)
+        {
+            int b = (int(x.x / 10) + int(x.z / 10) + int(x.y/10));
+            if (b & 1)
+                f = 0.80;
+            else
+                f = 0.01;
+        }
         type = obj.type;
     }
     ld t2 = D_INF;
@@ -276,7 +291,7 @@ void trace_ray( int w, int h )
 
 void gen_photon( Ray *r, V3 *f, int idx )
 {
-    *f = 2500 * D_PI * 4;
+    *f = 2500 * D_PI * 50;
     ld p = 2.0 * D_PI * halton( 0, idx ),
        t = 2.0 * acos( sqrt( 1.0 - halton( 1, idx ) )),
        sint = sin( t );
@@ -318,12 +333,12 @@ void density_estimate( V3* col, int s )
 
 int main()
 {
-    int w = 1280, h = 1080, s = 100000;
+    int w = 1280, h = 1080, s = 2000000;
     V3 *col = new V3[w * h];
 
     //Cup.Trans(V3( 40, 0, 110 ), 0.5);
     Cup.Trans(0, 1);
-    Cup.Trans( V3(10, 0, 90) - (Cup.bbox.mini)* 0.5, 0.5 );
+    Cup.Trans( V3(50, 0, 80) - (Cup.bbox.mini + (Cup.bbox.maxi - Cup.bbox.mini) * V3(1, 0, 1) * 0.5)* 0.5, 0.5 );
     Cup.Build();
 
     hpbbox.reset();
