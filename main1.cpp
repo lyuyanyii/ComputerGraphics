@@ -37,15 +37,16 @@ SphereObject sph[] =
     //SphereObject(16.5, V3( 27,        16.5,         47 ), V3( 0.25, 0.85, 0.25 ),  MaterialType::Glass),   //Mirror
     //SphereObject(16.5, V3( 73,        16.5,         88 ), V3( 0.99, 0.99, 0.99 ),  MaterialType::Glass ),   //Glass
     //SphereObject(8.5, V3( 50, 8.5, 60 ), V3( 0.75, 0.75, 0.75 ), MaterialType::Mirror ), //Middle
-    SphereObject(8.5, V3( 50-cos(D_PI/7)*40, 10, 100-sin(D_PI/7)*40 ), V3( 0.99, 0.01, 0.01 ), MaterialType::Glass ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7)*40, 10, 100-sin(D_PI/7)*40 ), V3( 0.99, 0.01, 0.01 ), MaterialType::Mirror ),
     SphereObject(8.5, V3( 50-cos(D_PI/7*2)*40, 20, 100-sin(D_PI/7*2)*40 ), V3( 0.99, 0.64, 0.01 ), MaterialType::Mirror ),
-    SphereObject(8.5, V3( 50-cos(D_PI/7*3)*40, 30, 100-sin(D_PI/7*3)*40 ), V3( 0.99, 0.99, 0.01 ), MaterialType::Glass ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*3)*40, 30, 100-sin(D_PI/7*3)*40 ), V3( 0.99, 0.99, 0.01 ), MaterialType::Mirror ),
     SphereObject(8.5, V3( 50-cos(D_PI/7*4)*40, 40, 100-sin(D_PI/7*4)*40 ), V3( 0.01, 0.99, 0.01 ), MaterialType::Mirror ),
-    SphereObject(8.5, V3( 50-cos(D_PI/7*5)*40, 50, 100-sin(D_PI/7*5)*40 ), V3( 0.01, 0.50, 0.99 ), MaterialType::Glass ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*5)*40, 50, 100-sin(D_PI/7*5)*40 ), V3( 0.01, 0.50, 0.99 ), MaterialType::Mirror ),
     SphereObject(8.5, V3( 50-cos(D_PI/7*6)*40, 60, 100-sin(D_PI/7*6)*40 ), V3( 0.01, 0.01, 0.99 ), MaterialType::Mirror ),
-    SphereObject(8.5, V3( 50-cos(D_PI/7*7)*40, 70, 100-sin(D_PI/7*7)*40 ), V3( 0.54, 0.01, 0.99 ), MaterialType::Glass ),
+    SphereObject(8.5, V3( 50-cos(D_PI/7*7)*40, 70, 100-sin(D_PI/7*7)*40 ), V3( 0.54, 0.01, 0.99 ), MaterialType::Mirror ),
 };
-MeshObject Cup = MeshObject("3d-model.obj", V3( 0.8, 0.8, 0.8 ), MaterialType::Glass);
+//MeshObject Cup = MeshObject("3d-model.obj", V3( 0.8, 0.8, 0.8 ), MaterialType::Mirror);
+my_bezier_obj A = my_bezier_obj( V3(50, 10, 80), 5, V3(0.8, 0.8, 0.8), MaterialType::Mirror );
 
 inline unsigned int get_hash( const int ix, const int iy, const int iz )
 {
@@ -89,7 +90,7 @@ void build_hash_grid( const int w, const int h )
                 for (int ix = abs(int(a.x)); ix <= abs(int(b.x)); ++ix)
                 {
                     int hv = get_hash( ix, iy, iz );
-                    hash_grid[ hv ].push_back(  hp );
+                    hash_grid[ hv ].push_back( hp );
                 }
     }
 }
@@ -130,17 +131,75 @@ inline bool intersect(const Ray &r, V3 &x, V3 &n, V3 &f, MaterialType &type)
     }
     ld t2 = D_INF;
     V3 n2 = 0;
-    bool s2 = Cup.intersect(r, t2, n2);
+    bool s2 = A.intersect(r, t2, n2);
     if (s2 && t2 < t1)
     {
         x = r.pos + r.dir * t2;
         //x.print();
         n = n2;
-        f = Cup.col;
-        type = Cup.type;
+        f = A.col;
+        type = A.type;
         //puts("A");
     }
     return s1 || s2;
+}
+void add_hitpoint(const V3 &x, const V3 &n, V3 f, int idx)
+{
+    HitPoint* hp = new HitPoint;
+    hp->f = f;
+    hp->pos = x;
+    hp->n = n;
+    hp->idx = idx;
+    hitpoints.push_back( hp );
+
+    // update the bounding box
+    hpbbox.update( x );
+
+}
+void update_hitpoints(const V3 &x, const V3 &n, const V3 &flux)
+{
+    V3 hh = (x - hpbbox.mini) * hash_s;
+    int ix = abs(int(hh.x)), iy = abs(int(hh.y)), iz = abs(int(hh.z));
+
+    auto lis = hash_grid[ get_hash(ix, iy, iz) ];
+    for (auto it = lis.begin(); it != lis.end(); ++it)
+    {
+        auto hp = *it;
+        V3 v = hp->pos - x;
+
+        if ((dot(hp->n, n) > 1e-3) && (dot(v, v) <= hp->r2))
+        {
+            ld g = (hp->N * ALPHA + ALPHA) / (hp->N * ALPHA + 1);
+            hp->r2 = hp->r2 * g;
+            hp->N ++;
+            hp->flux = ( hp->flux + hp->f * flux / D_PI ) * g;
+        }
+    }
+
+}
+V3 QMC_dir_sampling(int dep, int idx, V3 nl)
+{
+    ld r1 = 2.0 * D_PI * halton( dep * 3 - 1, idx ),
+       r2 = halton( dep * 3 + 0, idx ),
+       r2s = sqrt( r2 );
+    V3 w = nl,
+       u = unit(det((fabs(w.x) > .1 ? V3(0, 1, 0) : V3(1, 0, 0)), w)),
+       v = det(w, u),
+       d = unit( u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1 - r2) );
+    return d;
+}
+bool mirror_reflect(const Ray &r, const V3 &n, V3 nl, Ray &rr, ld &Re)
+{
+    bool into = (dot(n, nl) > 0);
+    ld nc = 1.0, nt = 1.5, nnt = (into) ? nc / nt : nt / nc,
+        ddn = dot( r.dir, nl ), cos2t = 1 - sqr(nnt) * (1 - sqr(ddn));
+    if (cos2t < 0)
+        return true;
+    V3 td = unit( r.dir * nnt - n * ( (into ? 1 : -1) * ( ddn * nnt + sqrt( cos2t )) ));
+    ld a = nt - nc, b = nt + nc, R0 = sqr(a) / (sqr(b)), c = 1 - (into ? -ddn : dot(td, n));
+    Re = R0 + (1 - R0) * c * c * c * c * c;
+    rr.dir = td;
+    return false;
 }
 void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx)
 {
@@ -163,98 +222,59 @@ void trace(const Ray &r, int dep, bool m, const V3 &flux, const V3 &adj, int idx
     
     V3 f = 0, n = 0, x = 0;
     MaterialType type;
-    ++dep;
     if (!intersect(r, x, n, f, type) || dep >= 20)
         return ;
-    V3 nl = (dot(n, r.dir) < 0) ? n : n*-1;
-    ld p = max(max(f.x, f.y), f.z);
 
     if ( type == MaterialType::Matte )
     {
         if (m)
-        {
             // camera ray: new a hitpoint
-            HitPoint* hp = new HitPoint;
-            hp->f = f * adj;
-            hp->pos = x;
-            hp->n = n;
-            hp->idx = idx;
-            hitpoints.push_back( hp );
-
-            // update the bounding box
-            hpbbox.update( x );
-        }
+            add_hitpoint(x, n, f * adj, idx);
         else
         {
-            V3 hh = (x - hpbbox.mini) * hash_s;
-            int ix = abs(int(hh.x)), iy = abs(int(hh.y)), iz = abs(int(hh.z));
-    
+                
             // Lock should be acquired here, we ignore it
             // since collusion rarely happens.
-            {
-                auto lis = hash_grid[ get_hash(ix, iy, iz) ];
-                for (auto it = lis.begin(); it != lis.end(); ++it)
-                {
-                    auto hp = *it;
-                    V3 v = hp->pos - x;
-
-                    if ((dot(hp->n, n) > 1e-3) && (dot(v, v) <= hp->r2))
-                    {
-                        ld g = (hp->N * ALPHA + ALPHA) / (hp->N * ALPHA + 1);
-                        hp->r2 = hp->r2 * g;
-                        hp->N ++;
-                        hp->flux = ( hp->flux + hp->f * flux / D_PI ) * g;
-                    }
-                }
-            }
+            update_hitpoints(x, n, flux);
 
             // sampling next direction by QMC
-
-            ld r1 = 2.0 * D_PI * halton( dep * 3 - 1, idx ),
-               r2 = halton( dep * 3 + 0, idx ),
-               r2s = sqrt( r2 );
-            V3 w = nl,
-               u = unit(det((fabs(w.x) > .1 ? V3(0, 1, 0) : V3(1, 0, 0)), w)),
-               v = det(w, u),
-               d = unit( u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1 - r2) );
+            V3 d = QMC_dir_sampling(dep, idx, (dot(n, r.dir) < 0) ? n : n*-1);
+            ld p = max(max(f.x, f.y), f.z);
 
             if (halton(dep * 3 + 1, idx) < p)
-                trace( Ray(x, d), dep, m, f * flux * (1.0 / p), f * adj, idx );
+                trace( Ray(x, d), dep + 1, m, f * flux * (1.0 / p), f * adj, idx );
         }
     }
     else if ( type == MaterialType::Mirror )
     {
-        trace( Ray(x, reflect(r.dir, n)), dep, m, flux * f, adj * f, idx );
+        trace( Ray(x, reflect(r.dir, n)), dep + 1, m, flux * f, adj * f, idx );
     }
     else if ( type == MaterialType::Glass )
     {
-        Ray lr( x, reflect( r.dir, n ) );
-        bool into = (dot(n, nl) > 0);
-        ld nc = 1.0, nt = 1.5, nnt = (into) ? nc / nt : nt / nc,
-           ddn = dot( r.dir, nl ), cos2t = 1 - sqr(nnt) * (1 - sqr(ddn));
 
+        Ray lr( x, reflect( r.dir, n ) ), rr = Ray(x, 0);
+        ld Re = 0;
         // total internal reflection
-        if (cos2t < -D_EPS)
-            return trace( lr, dep, m, f * flux, f * adj, idx );
+        if ( mirror_reflect(r, n, (dot(n, r.dir) < 0) ? n : n*-1, rr, Re) )
+        {
+            trace( lr, dep + 1, m, f * flux, f * adj, idx );
+            return ;
+        }
         
-        V3 td = unit( r.dir * nnt - n * ( (into ? 1 : -1) * ( ddn * nnt + sqrt( cos2t )) ));
-        ld a = nt - nc, b = nt + nc, R0 = sqr(a) / (sqr(b)), c = 1 - (into ? -ddn : dot(td, n)),
-           Re = R0 + (1 - R0) * c * c * c * c * c, p = Re;
-        Ray rr(x, td);
         V3 fflux = f * flux, fadj = f * adj;
 
         if ( m )
         {
             //camera ray: trace both directions
-            trace( lr, dep, m, fflux, fadj * Re, idx );
-            trace( rr, dep, m, fflux, fadj * (1.0 - Re), idx );
+            trace( lr, dep + 1, m, fflux, fadj * Re, idx );
+            trace( rr, dep + 1, m, fflux, fadj * (1.0 - Re), idx );
         }
         else
         {
-            if (halton( dep * 3 - 1, idx ) < p)
-                trace(lr, dep, m, fflux, fadj * Re, idx);
+            if (halton( dep * 3 - 1, idx ) < Re)
+                trace(lr, dep + 1, m, fflux, fadj * Re, idx);
             else
-                trace(rr, dep, m, fflux, fadj * (1.0 - Re), idx);
+                trace(rr, dep + 1, m, fflux, fadj * (1.0 - Re), idx);
         }
     }
     else
@@ -277,7 +297,7 @@ void trace_ray( int w, int h )
         {
             int idx = x + y * w;
             V3 dir = cx * ((x + 0.5) / w - 0.5) + cy * (-(y + 0.5) / h + 0.5) + cam.dir;
-            trace( Ray(cam.pos + dir * 140, unit(dir)), 0, true, V3(), 1, idx );
+            trace( Ray(cam.pos + dir * 140, unit(dir)), 1, true, V3(), 1, idx );
         }
     }
     
@@ -313,7 +333,7 @@ void trace_photon( int s )
         for (int j = 0; j < 1000; ++j)
         {
             gen_photon( &r, &f, 1000 * i + j );
-            trace( r, 0, false, f, 1, 1000 * i + j );
+            trace( r, 1, false, f, 1, 1000 * i + j );
         }
     }
 
@@ -333,13 +353,15 @@ void density_estimate( V3* col, int s )
 
 int main()
 {
-    int w = 1280, h = 1080, s = 2000000;
+    int w = 1280, h = 1080, s = 1000;
     V3 *col = new V3[w * h];
 
+    /*
     //Cup.Trans(V3( 40, 0, 110 ), 0.5);
     Cup.Trans(0, 1);
     Cup.Trans( V3(50, 0, 80) - (Cup.bbox.mini + (Cup.bbox.maxi - Cup.bbox.mini) * V3(1, 0, 1) * 0.5)* 0.5, 0.5 );
     Cup.Build();
+    */
 
     hpbbox.reset();
 

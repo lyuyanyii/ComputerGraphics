@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstring>
 #include <fstream>
+#include <assert.h>
 using namespace std;
 
 typedef double ld;
@@ -59,10 +60,10 @@ struct Triangle
         V3 w0 = r.pos - a;
         ld aa = -dot( n, w0 ), 
            bb =  dot( n, r.dir );
-        if (fabs(bb) < D_EPS)
+        if (fabs(bb) < 0)
             return 0;
         t = aa / bb;
-        if (t < D_EPS)
+        if (t < 0)
             return 0;
         V3 p = r.pos + r.dir * t,
            w = p - a;
@@ -362,5 +363,171 @@ struct MeshObject
     }
 };
 
+#include <vector>
+#include <cmath>
+
+struct poly
+{
+    vector<ld> a;
+
+    poly() {
+        a.clear();
+    }
+    poly(ld c) {
+        a.clear();
+        a.push_back(c);
+    }
+    poly(ld a1, ld a0) {
+        a.clear();
+        a.push_back(a0);
+        a.push_back(a1);
+    }
+    poly(const vector<ld> &a): a(a) {
+    }
+
+    poly operator +(const poly &p) const {
+        vector<ld> ans;
+        int size = max(a.size(), p.a.size());
+        for (int i = 0; i < size; ++i)
+            if (i < a.size() && i < p.a.size())
+                ans.push_back(a[i] + p.a[i]);
+            else if (i < a.size())
+                ans.push_back(a[i]);
+            else
+                ans.push_back(p.a[i]);
+        return ans;
+    }
+    poly operator -(const poly &p) const {
+        vector<ld> ans;
+        int size = max(a.size(), p.a.size());
+        for (int i = 0; i < size; ++i)
+            if (i < a.size() && i < p.a.size())
+                ans.push_back(a[i] - p.a[i]);
+            else if (i < a.size())
+                ans.push_back(a[i]);
+            else
+                ans.push_back(-p.a[i]);
+        return ans;
+    }
+    poly operator *(const poly &p) const {
+        vector<ld> ans = vector<ld>(a.size() + p.a.size() - 1);
+        for (int i = 0; i < a.size(); ++i)
+            for (int j = 0; j < p.a.size(); ++j)
+                ans[i + j] += a[i] * p.a[j];
+        return ans;
+    }
+    ld eval(ld x) const {
+        ld f = 0;
+        for (int i = 0; i < a.size(); ++i)
+            f += a[i] * pow(x, i);
+        return f;
+    }
+    ld d(ld x) const {
+        vector<ld> dp;
+        for (int i = 1; i < a.size(); ++i)
+            dp.push_back(a[i] * i);
+        return poly(dp).eval(x);
+    }
+    ld newton_solver(ld x, int dep = 0) const {
+        if (dep > 20)
+            return D_INF;
+        ld fx = this->eval(x);
+        if (fabs(fx) < D_EPS)
+            return x;
+        ld k = this->d(x),
+           nx = x - fx / k;
+        return this->newton_solver(nx, dep + 1);
+    }
+};
+
+struct cubic_bezier
+{
+    ld x[4], y[4];
+    poly fx, fy;
+
+    cubic_bezier() {}
+    cubic_bezier(const ld *xx, const ld *yy) {
+        memcpy(x, xx, sizeof(x));
+        memcpy(y, yy, sizeof(y));
+        //TODO
+        //parameteric polynomial initialization.
+        //
+        fx = poly(-1, 1) * poly(-1, 1) * poly(-1, 1) * x[0] +
+             poly(-1, 1) * poly(-1, 1) * poly(1, 0) * x[1] * 3 +
+             poly(-1, 1) * poly(1, 0) * poly(1, 0) * x[2] * 3 +
+             poly(1, 0) * poly(1, 0) * poly(1, 0) * x[3];
+        fy = poly(-1, 1) * poly(-1, 1) * poly(-1, 1) * y[0] +
+             poly(-1, 1) * poly(-1, 1) * poly(1, 0) * y[1] * 3 +
+             poly(-1, 1) * poly(1, 0) * poly(1, 0) * y[2] * 3 +
+             poly(1, 0) * poly(1, 0) * poly(1, 0) * y[3];
+    }
+};
+
+struct my_bezier_obj
+{
+    cubic_bezier b;
+    V3 pos, col;
+    ld scale;
+    MaterialType type;
+
+    my_bezier_obj() {}
+    my_bezier_obj(V3 pos, ld scale, const V3 &col, MaterialType type): pos(pos), scale(scale), col(col), type(type) {
+        const ld x[] = {0, 7, 0, 0},
+                 y[] = {0, 3, 5, 15};
+        b = cubic_bezier(x, y);
+    }
+
+    bool intersect(Ray r, ld &t, V3 &n) const {
+        r.pos = (r.pos - pos) / scale;
+        if (fabs(r.dir.y) < D_EPS)
+            r.dir.y = (r.dir.y > 0) ? D_EPS : -D_EPS,
+            r.dir = unit(r.dir);
+        poly fx = (b.fy - r.pos.y) * (1 / r.dir.y * r.dir.x) + r.pos.x,
+             fz = (b.fy - r.pos.y) * (1 / r.dir.y * r.dir.z) + r.pos.z;
+        /*
+        for (int i = 0; i < fx.a.size(); ++i)
+            printf("%lf ", fx.a[i]);
+        puts("");
+        */
+        poly ft = fx * fx + fz * fz - b.fx * b.fx;
+        //poly ft = fx - b.fx;
+        /*
+        cout << (b.fy.eval(0.653356) - r.pos.y) * (1 / r.dir.y * r.dir.x) + r.pos.x << endl;
+        cout << fx.eval(0.653356) << " " << b.fx.eval(0.653356) << endl;
+        */
+        t = D_INF;
+
+        ld t0 = 0, tt = 0;
+        for (int i = 0; i < 10; ++i)
+        {
+            t0 = (ld)rand() / RAND_MAX;
+            t0 = ft.newton_solver(t0);
+            if (t0 > 0 && t0 < 1)
+            {
+                ld y0 = b.fy.eval(t0),
+                   t1 = (y0 - r.pos.y) / r.dir.y;
+                assert( fabs( ft.eval(t0) ) < D_EPS );
+                if (t1 > 0 && t1 < t)
+                    t = t1, tt = t0;
+            }
+        }
+
+        if (!(t < D_INF))
+            return false;
+        //cout << t << " " << tt << endl;
+        V3 o = r.pos + r.dir * t;
+        //o.print(), cout << endl;
+        ld x = b.fx.eval(tt);
+        //cout << x << " " << (b.fy.eval(tt) - r.pos.y) / r.dir.y * r.dir.x + r.pos.x << endl;
+        //assert(fabs(sqr(o.x) + sqr(o.z) - sqr(x)) < D_EPS);
+        n = V3(b.fx.d(tt), b.fy.d(tt), 0);
+        swap(n.x, n.y);
+        n.y = -n.y;
+        n.z = n.x / x * o.z;
+        n.x = n.x / x * o.x;
+        n = unit(n);
+        return true;
+    }
+};
 
 #endif
