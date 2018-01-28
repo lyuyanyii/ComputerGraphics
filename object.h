@@ -417,9 +417,9 @@ struct poly
         return ans;
     }
     ld eval(ld x) const {
-        ld f = 0;
+        ld f = 0, e = 1;
         for (int i = 0; i < a.size(); ++i)
-            f += a[i] * pow(x, i);
+            f += a[i] * e, e *= x;
         return f;
     }
     ld d(ld x) const {
@@ -427,6 +427,11 @@ struct poly
         for (int i = 1; i < a.size(); ++i)
             dp.push_back(a[i] * i);
         return poly(dp).eval(x);
+    }
+    ld dp() const {
+        vector<ld> dp;
+        for (int i = 1; i < a.size(); ++i)
+            dp.push_back(a[i] * i);
     }
     ld newton_solver(ld x, int dep = 0) const {
         if (dep > 20)
@@ -498,9 +503,10 @@ struct my_bezier_obj
         t = D_INF;
 
         ld t0 = 0, tt = 0;
-        for (int i = 0; i < 10; ++i)
+        int IT = 100;
+        for (int i = 0; i < IT; ++i)
         {
-            t0 = (ld)rand() / RAND_MAX;
+            t0 = (ld)i / IT;
             t0 = ft.newton_solver(t0);
             if (t0 > 0 && t0 < 1)
             {
